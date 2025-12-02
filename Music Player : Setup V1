@@ -1,0 +1,70 @@
+function keyPressed() {
+
+  fullscreen(true);
+
+}
+
+
+
+let playBtn, stopBtn;
+let playing = false;
+
+
+
+function setup() {
+  
+  createCanvas(5000, 1000);
+  textFont('monospace'); 
+  rectMode(CORNER);
+
+ // Button Styles
+  
+  playBtn = createButton('PLAY');
+  playBtn.position(30, 30);
+  playBtn.style('font-family', 'monospace');
+  playBtn.style('background', 'white');
+  playBtn.style('color', 'black');
+  playBtn.style('padding', '8px 14px');
+  
+  playBtn.mousePressed(() => startPlaying());
+
+  
+  stopBtn = createButton('STOP');
+  stopBtn.position(100, 30);
+  stopBtn.style('font-family', 'monospace');
+  stopBtn.style('background', 'white');
+  stopBtn.style('color', 'black');
+  stopBtn.style('padding', '8px 14px');
+  stopBtn.mousePressed(() => stopPlaying());
+}
+
+
+function draw() {
+  
+  background(30); 
+  
+  // Button Status Text
+
+  if (playing) {
+    fill(0, 255, 0);
+    text('PLAYING...', 35, 85);
+  } else {
+    fill(100);
+    text('STOPPED.', 110, 85);
+    
+  }
+}
+
+
+
+// Button Mechanism Rules
+
+function startPlaying() {
+  playing = true;
+ 
+}
+
+function stopPlaying() {
+  playing = false;
+
+}
