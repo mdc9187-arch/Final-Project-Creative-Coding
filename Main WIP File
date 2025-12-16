@@ -139,7 +139,6 @@ function runStaticLevel() {
   }
 }
 
-// chaselevelstuff
 function runChaseLevel() {
     // distance cursor to orb
     let d = dist(mouseX, mouseY, target.x, target.y);
@@ -153,10 +152,25 @@ function runChaseLevel() {
         vec.mult(speed);
         target.add(vec);
         
-        // lock orb in window
-        target.x = constrain(target.x, 50, width-50);
-        target.y = constrain(target.y, 50, height-50);
+      
+        // If orb toucch any edge, reset to center
+        if (target.x < 0 || target.x > width || target.y < 0 || target.y > height) {
+             target.x = width / 2;
+             target.y = height / 2;
+        }
     }
+    
+    // draw orb
+    drawOrb(target.x, target.y, 50, white);
+    
+    // cursor change
+    if (dist(mouseX, mouseY, target.x, target.y) < 50) {
+        cursor('pointer');
+    } else {
+        cursor('default');
+    }
+
+
     
    
     
@@ -172,6 +186,8 @@ function runChaseLevel() {
         cursor('default');
     }
 }
+
+
 
 // LEVEL FUNCTIONS
 
@@ -358,8 +374,17 @@ function transition() {
 
 
 function keyPressed() {
+  
   if (key === 'f' || key === 'F') {
       fullscreen(!fullscreen());
+  }
+  
+  // RESET GAME
+  if (key === 'r' || key === 'R') {
+    level = 0;
+    transitionState = 'NONE'; 
+    transitionAlpha = 0;      
+    resetOrb();              
   }
 }
 
