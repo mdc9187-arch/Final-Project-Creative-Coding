@@ -22,3 +22,10 @@ Add sound effects
 Experiment with splitting mechanic (orb splits into two upon successful click
 
 Experiment with obstacles
+
+
+Final 48 hours changes:
+
+split mechanic for each level, but with increasing complexity
+use classes for orbs to streamline code
+organize code, delete extra spaces and comments/notes
