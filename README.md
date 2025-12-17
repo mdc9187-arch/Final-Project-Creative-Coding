@@ -26,6 +26,12 @@ Experiment with obstacles
 
 Final 48 hours changes:
 
-split mechanic for each level, but with increasing complexity
-use classes for orbs to streamline code
-organize code, delete extra spaces and comments/notes
+-Added initial game start transition where game title card expands to white out full screen
+
+-Changed colors to invert every level, switching from black/white to white/black, creating a more interesting and dynamic theme
+
+-Full split mechanic added, with each level having one more orb in the resulting split than the previous
+
+-implemented classes for orbs to streamline code
+
+-organized code, delete extra spaces and comments/notes
