@@ -35,3 +35,20 @@ Final 48 hours changes:
 -implemented classes for orbs to streamline code
 
 -organized code, delete extra spaces and comments/notes
+
+
+IMPORTANT REVISIONS
+Sped up initial transition,
+added use of forces to create repulsion effect for new orbs after split based on vector distance, 
+added flash alpha for clic effect, 
+used 3rd party library for sound effects
+
+MUSIC!!!
+Purchased pump up the jam from iTunes Store, 
+converted m4 file to mp3, added as background music for game, 
+added custom thematically correct sound effects, 
+added keyboard controls instructions to title screen, 
+including new easy mode toggle, which makes the levels doable for a laptop and trackpad user
+
+
+made previous default the standard difficutly mode, whnile easy is set as default value. added hard mode for a three option toggle system
