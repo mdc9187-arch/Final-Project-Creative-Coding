@@ -52,3 +52,7 @@ including new easy mode toggle, which makes the levels doable for a laptop and t
 
 
 made previous default the standard difficutly mode, whnile easy is set as default value. added hard mode for a three option toggle system
+
+FINAL REVIEW OF CODE, CONSOLIDATION, REMOVED REDUNDANCIES, FORMATTED AND ORGANIZED 
+
+use formatting web tool to make final code slightly more readable
