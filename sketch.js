@@ -1,393 +1,494 @@
-// GAME OPENS TO TITLE SCREEN (LEVEL 0):
-// CURRENT LEVEL SETUP:
+const Settings = {
+  maxLevels: 10,
+  colors: {
+    background: { bright: 255, dark: 0 },
+    main: { bright: 0, dark: 255 },
+  },
+  sound: { attack: 0.001, decay: 0.2, sustain: 0.0, release: 0.5 },
+  game: { pushRadius: 150, particleCount: 150 },
+};
 
-let level = 0;
+let game = {
+  level: 0,
+  difficulty: "EASY",
+  hasSplit: false,
+  loadPercentage: 0,
+  visualLoad: 0,
+  musicReady: false,
+  backgroundColor: 0,
+  mainColor: 255,
+  flashAlpha: 0,
+};
 
-let maxLevels = 10;
+let screenFade = {
+  active: false,
+  mode: "NONE",
+  alpha: 0,
+  position: null,
+  radius: 0,
+};
 
-
-
-// ARRAY FOR FEEDBACK PARTICLES:
+let audio = {
+  tone: null,
+  static: null,
+  envelope: null,
+  staticEnvelope: null,
+  song: null,
+};
 
 let particles = [];
+let orbs = [];
 
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  noStroke();
+  rectMode(CENTER);
+  ellipseMode(CENTER);
+  screenFade.position = createVector(0, 0);
 
-let target;
+  initializeSound();
+  resetLevel();
+}
 
+function initializeSound() {
+  audio.tone = new p5.Oscillator("sine");
+  audio.envelope = new p5.Envelope();
+  audio.envelope.setADSR(
+    Settings.sound.attack,
+    Settings.sound.decay,
+    Settings.sound.sustain,
+    Settings.sound.release,
+  );
+  audio.envelope.setRange(1.0, 0);
 
-// TRANSITION VARIABLES
-let transitionAlpha = 0;
-let transitionState = 'NONE'; 
+  audio.tone.start();
+  audio.tone.amp(0);
 
-//'NONE' is default, no change
-//'OUT' fades to black
-//'IN' loads new level and resets to 'NONE'
+  audio.static = new p5.Noise("white");
+  audio.staticEnvelope = new p5.Envelope();
+  audio.staticEnvelope.setADSR(0.001, 0.05, 0, 0.05);
+  audio.staticEnvelope.setRange(0.4, 0);
 
+  audio.static.start();
+  audio.static.amp(0);
 
+  audio.song = loadSound(
+    "PumpUpTheJam.mp3",
+    () => {
+      game.musicReady = true;
+      game.loadPercentage = 1.0;
+    },
+    () => {
+      console.log("Error loading music");
+      game.musicReady = true;
+      game.loadPercentage = 1.0;
+    },
+    (percentage) => {
+      if (percentage.total > 0)
+        game.loadPercentage = percentage.loaded / percentage.total;
+    },
+  );
+}
 
-
-// ORB SIZE SETUP :
-
-// let orbSize = 50;
-
-// let orbX = width / 2;
-// let orbY = height * 0.6;
-
-
-
-
-// COLOR BANK
-
-
-const black   = 0;
-const white   = 255;
-
-const goodgreen   = '#2ed573';
-const badred      = '#ff4757';
-
-
-// FEEDBACK PARTICLES 
-
-function spawnParticles(x, y, count, colorValue) {
-  
-  for(let i=0; i<count; i++) {
+function createParticles(x, y, count, colorValue) {
+  for (let i = 0; i < count; i++) {
     particles.push(new Particle(x, y, colorValue));
-    
   }
 }
 
-function updateParticles() {
-  
-  for(let i = particles.length - 1; i >= 0; i--) {
-    particles[i].update();
-    particles[i].draw();
-    if (particles[i].isDead()) particles.splice(i, 1);
-    
+function playPop(pitchModifier) {
+  let startFrequency = 150 * pitchModifier;
+  let endFrequency = 61 * pitchModifier;
+
+  audio.tone.freq(startFrequency);
+  audio.tone.freq(endFrequency, 0.1);
+  audio.envelope.play(audio.tone);
+  audio.staticEnvelope.play(audio.static);
+}
+
+function playSplit() {
+  playPop(1.5);
+}
+
+function manageParticles() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    let p = particles[i];
+    p.update();
+    p.show();
+    if (p.isGone()) particles.splice(i, 1);
   }
 }
 
 class Particle {
-  
   constructor(x, y, colorValue) {
-    
-    this.pos = createVector(x, y);
-    
-    this.vel = p5.Vector.random2D().mult(random(10, 15));
-    
+    this.position = createVector(x, y);
+    this.velocity = p5.Vector.random2D().mult(random(8, 25));
     this.alpha = 255;
-    
-    this.colorValue = color(colorValue);
-    
-    this.size = random(20, 25);
-    
+    this.color = color(colorValue);
+    this.size = random(6, 15);
+    this.drag = 0.9;
   }
-  
   update() {
-    
-    this.pos.add(this.vel);
-    this.alpha -= 5;
+    this.position.add(this.velocity);
+    this.velocity.mult(this.drag);
+    this.alpha -= 10;
     this.size *= 0.95;
   }
-  draw() {
-    
+  show() {
     noStroke();
-    
-    this.colorValue.setAlpha(this.alpha);
-    
-    fill(this.colorValue);
-    
-    ellipse(this.pos.x, this.pos.y, this.size);
+    this.color.setAlpha(this.alpha);
+    fill(this.color);
+    ellipse(this.position.x, this.position.y, this.size);
   }
-  
-  isDead() {
-    
+  isGone() {
     return this.alpha <= 0;
-    
   }
 }
 
+class Orb {
+  constructor(x, y, type = "STILL") {
+    this.position = createVector(x, y);
+    this.size = 50;
+    this.color = game.mainColor;
+    this.type = type;
+    this.isHovered = false;
+  }
+  update() {
+    if (this.type === "CHASE") {
+      let distanceToMouse = dist(
+        mouseX,
+        mouseY,
+        this.position.x,
+        this.position.y,
+      );
+      let speed = 4;
+      let wiggle = 0.1;
 
+      switch (game.difficulty) {
+        case "STANDARD":
+          speed = 8;
+          wiggle = 0.5;
+          break;
+        case "ERRATIC":
+          speed = 14;
+          wiggle = 1.2;
+          break;
+      }
 
-function drawOrb(x, y, size, colorValue) {
-  let p = sin(frameCount * 0.1) * (size * 0.2);
-  let alpha = map(sin(frameCount * 0.1), -1, 1, 100, 200);
-  
-  let c = color(colorValue);
-  
-  // outer
-  fill(red(c), green(c), blue(c), 50);
-  ellipse(x, y, size + p*2);
-  
-  // inner
-  fill(red(c), green(c), blue(c), alpha);
-  ellipse(x, y, size + p);
-  
-  // orb core
-  fill(colorValue);
-  ellipse(x, y, size);
+      if (distanceToMouse < 250) {
+        let direction = createVector(
+          this.position.x - mouseX,
+          this.position.y - mouseY,
+        );
+        direction.normalize();
+        direction.rotate(random(-wiggle, wiggle));
+        direction.mult(speed);
+        this.position.add(direction);
+
+        this.position.x = constrain(this.position.x, 25, width - 25);
+        this.position.y = constrain(this.position.y, 25, height - 25);
+      }
+    }
+
+    let pushForce = createVector(0, 0);
+
+    for (let other of orbs) {
+      if (other !== this) {
+        let distance = this.position.dist(other.position);
+        if (distance < Settings.game.pushRadius && distance > 0) {
+          let push = p5.Vector.sub(this.position, other.position);
+          push.normalize();
+          push.mult(map(distance, 0, Settings.game.pushRadius, 15, 0));
+          pushForce.add(push);
+        }
+      }
+    }
+    this.position.add(pushForce);
+    this.isHovered =
+      dist(mouseX, mouseY, this.position.x, this.position.y) < this.size;
+  }
+
+  show() {
+    let pulse = sin(frameCount * 0.2) * (this.size * 0.2);
+    let glow = map(sin(frameCount * 0.2), -1, 1, 100, 200);
+    let c = color(this.color);
+
+    fill(red(c), green(c), blue(c), 50);
+    ellipse(this.position.x, this.position.y, this.size + pulse * 2);
+
+    fill(red(c), green(c), blue(c), glow);
+    ellipse(this.position.x, this.position.y, this.size + pulse);
+
+    fill(c);
+    ellipse(this.position.x, this.position.y, this.size);
+  }
 }
 
-// chaselevelstuff
-function runChaseLevel() {
-    // distance cursor to orb
-    let d = dist(mouseX, mouseY, target.x, target.y);
-    let speed = 7;
-    
-    // if mouse within 200 pixels, move away
-    if (d < 200) {
-        let vec = createVector(target.x - mouseX, target.y - mouseY);
-        vec.normalize();
-        vec.rotate(random(-0.5, 0.5)); 
-        vec.mult(speed);
-        target.add(vec);
-        
-        // lock orb in window
-        target.x = constrain(target.x, 50, width-50);
-        target.y = constrain(target.y, 50, height-50);
-    }
-    
-   
-    
-    // draw orb
-
-    drawOrb(target.x, target.y, 50, white);
-    
-    // cursor change
-
-    if (dist(mouseX, mouseY, target.x, target.y) < 50) {
-        cursor('pointer');
-    } else {
-        cursor('default');
-    }
+function runGame() {
+  let anyHover = false;
+  for (let o of orbs) {
+    o.update();
+    o.show();
+    if (o.isHovered) anyHover = true;
+  }
+  cursor(anyHover ? "pointer" : "default");
 }
 
-// LEVEL FUNCTIONS
+function drawTitle() {
+  let pulse = 0;
+  let diameter = 350;
 
-function drawLevel1() { runChaseLevel(); }
-function drawLevel2() { runChaseLevel(); }
-function drawLevel3() { runChaseLevel(); }
-function drawLevel4() { runChaseLevel(); }
-function drawLevel5() { runChaseLevel(); }
-function drawLevel6() { runChaseLevel(); }
-function drawLevel7() { runChaseLevel(); }
-function drawLevel8() { runChaseLevel(); }
-function drawLevel9() { runChaseLevel(); }
-function drawLevel10() { runChaseLevel(); }
+  game.visualLoad = lerp(game.visualLoad, game.loadPercentage, 0.1);
 
-function drawTitleScreen() {
- 
-  let pulse = sin(frameCount * 0.05) * 10;
-  
-  let currentDiameter = 350 + pulse;
-  
-
-
-  // Circle Outline
+  if (game.musicReady) {
+    pulse = sin(frameCount * 0.1) * 15;
+    diameter = 350 + pulse;
+    game.visualLoad = 1.0;
+  }
 
   noFill();
-  stroke(white);
+  stroke(game.mainColor);
   strokeWeight(8);
-  ellipse(width/2, height/2, currentDiameter);
+  strokeCap(SQUARE);
 
-  // Text "level"
+  let endAngle = map(game.visualLoad, 0, 1, -HALF_PI, TWO_PI - HALF_PI);
+  arc(width / 2, height / 2, diameter, diameter, -HALF_PI, endAngle);
 
   noStroke();
-  fill(white);
+  fill(game.mainColor);
   textAlign(CENTER, CENTER);
   textStyle(BOLD);
   textSize(100);
-  text("level", width/2, height/2 - 5);
-  
-  
+  text("level", width / 2, height / 2 - 5);
 
+  textSize(20);
+  textStyle(NORMAL);
 
-  // Dynamic Hit Area: Parameters Change Based On Pulse, Changes Cursor Style
+  if (game.musicReady) {
+    text("click to start", width / 2, height / 2 + 60);
+    textSize(14);
+    fill(game.mainColor, 180);
 
-  if (dist(mouseX, mouseY, width/2, height/2) < currentDiameter / 2) {
-    cursor('pointer');
-    
+    let help = `[F] Fullscreen    [D] Difficulty: ${game.difficulty}    [R] Reset`;
+    text(help, width / 2, height - 60);
+
+    let distance = dist(mouseX, mouseY, width / 2, height / 2);
+    cursor(distance < diameter / 2 ? "pointer" : "default");
   } else {
-    
-    cursor('default');
-    
+    cursor("wait");
   }
 }
 
-function titleScreenClick() {
-  
+function clickTitle() {
+  if (!game.musicReady) return;
+
+  userStartAudio();
+
+  if (audio.song && game.musicReady && !audio.song.isPlaying()) {
+    audio.song.setVolume(0.5);
+    audio.song.loop();
+  }
+
   let pulse = sin(frameCount * 0.05) * 10;
-  let currentDiameter = 350 + pulse;
-  
-  if (dist(mouseX, mouseY, width / 2, height / 2) < currentDiameter / 2) {
-    level = 1;      
-    cursor('default');     // Reset cursor
+  let size = 350 + pulse;
+
+  if (dist(mouseX, mouseY, width / 2, height / 2) < size / 2) {
+    playPop(1.0);
+    createParticles(width / 2, height / 2, 150, game.mainColor);
+
+    screenFade.position.set(mouseX, mouseY);
+    screenFade.radius = 0;
+    screenFade.mode = "TITLE_OUT";
+    cursor("default");
   }
 }
 
+function resetLevel() {
+  orbs = [];
+  game.hasSplit = false;
 
-// SETUP
+  if (game.level % 2 === 0) {
+    game.backgroundColor = Settings.colors.background.dark;
+    game.mainColor = Settings.colors.main.dark;
+  } else {
+    game.backgroundColor = Settings.colors.background.bright;
+    game.mainColor = Settings.colors.main.bright;
+  }
 
-level = 0
-
-function setup() {
-  
-  createCanvas(windowWidth, windowHeight);
-  
-  noStroke();
-
-  
-  rectMode(CENTER);
-  
-  ellipseMode(CENTER);
-
-  resetOrb();
-  
+  if (game.level === 1) {
+    orbs.push(new Orb(width / 2, height / 2, "STILL"));
+  } else if (game.level === 2) {
+    orbs.push(new Orb(width / 2, height / 2, "CHASE"));
+  } else if (game.level >= 3) {
+    orbs.push(new Orb(width / 2, height / 2, "CHASE"));
+  }
 }
-
-// DRAW - MAIN CODE BODY
 
 function draw() {
-  
-  
-  background(black); 
-  
-  
-  updateParticles();
-  
- push(); 
-    
-switch (level) {
-    
-    case 0:  drawTitleScreen(); break;
-    case 1:  drawLevel1(); break;
-    case 2:  drawLevel2(); break;
-    case 3:  drawLevel3(); break;
-    case 4:  drawLevel4(); break;
-    case 5:  drawLevel5(); break;
-    case 6:  drawLevel6(); break;
-    case 7:  drawLevel7(); break;
-    case 8:  drawLevel8(); break;
-    case 9:  drawLevel9(); break;
-    case 10: drawLevel10(); break;
-      
-    default:
-      fill(white);
-      textAlign(CENTER);
-      text("complete", width/2, height/2);
-      break;
-  }
-  
-  pop();
-  
-  drawUI();
-  transition();
-  
-}
+  background(game.backgroundColor);
 
-function resetOrb() {
-    
-    target = createVector(width/2, height/2);
+  if (game.flashAlpha > 0) {
+    push();
+    noStroke();
+    let flashColor = game.backgroundColor === 0 ? 255 : 0;
+    fill(flashColor, game.flashAlpha);
+    rect(width / 2, height / 2, width, height);
+    game.flashAlpha -= 15;
+    pop();
+  }
+
+  manageParticles();
+
+  push();
+  if (game.level === 0) {
+    drawTitle();
+  } else if (game.level <= Settings.maxLevels) {
+    runGame();
+  } else {
+    fill(game.mainColor);
+    textAlign(CENTER);
+    textSize(50);
+    text("complete", width / 2, height / 2);
+  }
+  pop();
+
+  drawUI();
+  handleFade();
 }
 
 function drawUI() {
-    if (level === 0) return;
-    
-    for(let i=1; i<=maxLevels; i++) {
-        fill(i === level ? 255 : 50);
-        let spacing = 20;
-        let totalWidth = maxLevels * spacing;
-        let startX = (width/2) - (totalWidth/2);
-        ellipse(startX + (i*spacing), height - 30, 6);
-    }
+  if (game.level === 0) return;
+
+  for (let i = 1; i <= Settings.maxLevels; i++) {
+    let alpha = i <= game.level ? 255 : 50;
+    fill(game.mainColor, alpha);
+
+    let gap = 23;
+    let totalWidth = Settings.maxLevels * gap;
+    let startX = width / 2 - totalWidth / 2;
+    ellipse(startX + i * gap, height - 40, 15);
+  }
 }
 
-function startTransition() {
-    transitionState = 'OUT';
-    transitionAlpha = 0;
+function startFade() {
+  screenFade.mode = "OUT";
+  screenFade.alpha = 0;
 }
 
+function handleFade() {
+  if (screenFade.mode === "NONE") return;
+  noStroke();
 
-function transition() {
-    if (transitionState !== 'NONE') {
-        fill(0, transitionAlpha);
-        rect(width/2, height/2, width, height);
-    }
+  if (screenFade.mode === "OUT" || screenFade.mode === "IN") {
+    fill(0, screenFade.alpha);
+    rect(width / 2, height / 2, width, height);
 
-    if (transitionState === 'OUT') {
-        transitionAlpha += 10; 
-        if (transitionAlpha >= 255) {
-            transitionState = 'IN';
-            level++; 
-            if (level > maxLevels) level = 0;
-            
-            
-            resetOrb(); 
-        }
-    } else if (transitionState === 'IN') {
-        transitionAlpha -= 10; 
-        if (transitionAlpha <= 0) {
-            transitionState = 'NONE';
-        }
+    if (screenFade.mode === "OUT") {
+      screenFade.alpha += 30;
+      if (screenFade.alpha >= 255) {
+        screenFade.mode = "IN";
+        game.level++;
+        if (game.level > Settings.maxLevels) game.level = 0;
+        resetLevel();
+      }
+    } else if (screenFade.mode === "IN") {
+      screenFade.alpha -= 30;
+      if (screenFade.alpha <= 0) {
+        screenFade.mode = "NONE";
+      }
     }
+  } else if (screenFade.mode === "TITLE_OUT") {
+    fill(255);
+    ellipse(
+      screenFade.position.x,
+      screenFade.position.y,
+      screenFade.radius * 2,
+    );
+    screenFade.radius += 150;
+
+    let maxDistance = dist(0, 0, width, height);
+    if (screenFade.radius > maxDistance) {
+      game.level = 1;
+      resetLevel();
+      screenFade.mode = "NONE";
+    }
+  }
 }
-
-
 
 function keyPressed() {
-  if (key === 'f' || key === 'F') {
-      fullscreen(!fullscreen());
+  if (key === "f" || key === "F") fullscreen(!fullscreen());
+
+  if (key === "r" || key === "R") {
+    game.level = 0;
+    screenFade.mode = "NONE";
+    screenFade.alpha = 0;
+    orbs = [];
+    resetLevel();
+  }
+
+  if (game.level === 0 && (key === "d" || key === "D")) {
+    if (game.difficulty === "EASY") {
+      game.difficulty = "STANDARD";
+      playPop(1.0);
+    } else if (game.difficulty === "STANDARD") {
+      game.difficulty = "ERRATIC";
+      playPop(1.2);
+    } else {
+      game.difficulty = "EASY";
+      playPop(0.8);
+    }
   }
 }
 
 function mousePressed() {
-  
-  if (transitionState !== 'NONE') return;
+  if (screenFade.mode !== "NONE") return;
 
-  // LEVEL 0 (TITLE)
-  if (level === 0) {
-    let pulse = sin(frameCount * 0.05) * 10;
-    let currentDiameter = 350 + pulse;
-    
-    if (dist(mouseX, mouseY, width/2, height/2) < currentDiameter / 2) {
-      spawnParticles(width/2, height/2, 50, white);
-      titleScreenClick(); 
-    }
-  } 
-  
-  
-  else if (level >= 1 && level <= 10) {
-      
-      
-      if (dist(mouseX, mouseY, target.x, target.y) < 50) {
-          spawnParticles(target.x, target.y, 40, goodgreen);
-          startTransition();
+  if (game.level === 0) {
+    clickTitle();
+    return;
+  }
+
+  for (let i = orbs.length - 1; i >= 0; i--) {
+    let o = orbs[i];
+
+    if (dist(mouseX, mouseY, o.position.x, o.position.y) < o.size) {
+      createParticles(
+        o.position.x,
+        o.position.y,
+        Settings.game.particleCount,
+        o.color,
+      );
+      playPop(1.0);
+      game.flashAlpha = 50;
+
+      if (game.level >= 3) {
+        orbs.splice(i, 1);
+
+        if (!game.hasSplit) {
+          let amount = game.level - 1;
+          let spread = 60;
+          setTimeout(playSplit, 100);
+
+          for (let j = 0; j < amount; j++) {
+            let angle = map(j, 0, amount, 0, TWO_PI);
+            let newX = o.position.x + cos(angle) * spread;
+            let newY = o.position.y + sin(angle) * spread;
+            orbs.push(new Orb(newX, newY, "CHASE"));
+          }
+          game.hasSplit = true;
+        }
+
+        if (orbs.length === 0) startFade();
+        return;
       } else {
-        
+        startFade();
+        return;
       }
+    }
   }
 }
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
-  // center orb after resize 
-  if(target) {
-      target.x = width/2;
-      target.y = height/2;
-  }
+  resetLevel();
 }
-    
-  
-
-
-
-
-  
-// LEVEL 1 INTERACTION
-//   else if (level === 1) {
-//      checkLevel1Click();  
-//   }
-  
-//   LEVEL 2 INTERACTION
-//   else if (level === 2) {
-//      checkLevel2Click(); 
-//   }
