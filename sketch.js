@@ -79,7 +79,6 @@ function initializeSound() {
       game.loadPercentage = 1.0;
     },
     () => {
-      console.log("Error loading music");
       game.musicReady = true;
       game.loadPercentage = 1.0;
     },
@@ -147,6 +146,7 @@ class Particle {
 
 class Orb {
   constructor(x, y, type = "STILL") {
+    this.spawnPoint = createVector(x, y);
     this.position = createVector(x, y);
     this.size = 50;
     this.color = game.mainColor;
@@ -185,8 +185,10 @@ class Orb {
         direction.mult(speed);
         this.position.add(direction);
 
-        this.position.x = constrain(this.position.x, 25, width - 25);
-        this.position.y = constrain(this.position.y, 25, height - 25);
+        if (this.position.x < 0 || this.position.x > width || this.position.y < 0 || this.position.y > height) {
+          this.position.set(this.spawnPoint.x, this.spawnPoint.y);
+          audio.staticEnvelope.play(audio.static);
+        }
       }
     }
 
