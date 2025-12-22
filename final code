@@ -184,9 +184,6 @@ class Orb {
         direction.rotate(random(-wiggle, wiggle));
         direction.mult(speed);
         this.position.add(direction);
-
-        this.position.x = constrain(this.position.x, 25, width - 25);
-        this.position.y = constrain(this.position.y, 25, height - 25);
       }
     }
 
@@ -204,6 +201,19 @@ class Orb {
       }
     }
     this.position.add(pushForce);
+
+   
+    let buffer = this.size / 2;
+    if (
+      this.position.x <= buffer ||
+      this.position.x >= width - buffer ||
+      this.position.y <= buffer ||
+      this.position.y >= height - buffer
+    ) {
+      this.position.set(width / 2, height / 2);
+    }
+   
+
     this.isHovered =
       dist(mouseX, mouseY, this.position.x, this.position.y) < this.size;
   }
